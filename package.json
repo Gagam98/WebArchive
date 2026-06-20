@@ -1,0 +1,10 @@
+{
+  "name": "hackerton-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run --prefix frontend dev",
+    "build": "npm run --prefix frontend build",
+    "preview": "npm run --prefix frontend preview"
+  }
+}

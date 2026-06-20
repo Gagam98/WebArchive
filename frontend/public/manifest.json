@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "URL 칠판",
+  "description": "인터넷 미아 방지용 다중 URL 관리 칠판 보드",
+  "version": "1.0",
+  "permissions": ["sidePanel"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "URL 칠판 열기"
+  },
+  "side_panel": {
+    "default_path": "index.html"
+  }
+}
