@@ -48,6 +48,7 @@ export default function MemoBoard({ groups, setGroups, customTags, setCustomTags
 
   const [activeNote, setActiveNote] = useState(null);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [camera, setCamera] = useState({ x: 0, y: 0 });
   const clickTimer = useRef(null);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
@@ -85,38 +86,53 @@ export default function MemoBoard({ groups, setGroups, customTags, setCustomTags
   };
 
   const handleAutoSort = () => {
-    const W = window.innerWidth || 1200; // fallback if needed
-    const H = window.innerHeight || 800;
+    const W = window.innerWidth || 1200;
+    const startX = 40;
+    let currentY = 30;
+    const itemWidth = 130; // 110 width + 20 gap
+    const itemHeight = 140; // 110 height + 30 gap
 
-    const tagSet = [...new Set(notes.map(n => n.tags?.[0] || '분류 안 됨'))];
-    const T = tagSet.length;
-    const C = T <= 3 ? 1 : 2;
-    const R = Math.ceil(T / C);
+    const tagOrder = customTags.map(t => t.id);
+    tagOrder.push('분류 안 됨');
 
-    const centers = {};
-    tagSet.forEach((tag, i) => {
-      const col = i % C;
-      const row = Math.floor(i / C);
-      centers[tag] = {
-        x: (W / C) * (col + 0.5) - 100, // adjust for note width
-        y: (H / R) * (row + 0.5) - 100,
-      };
+    const grouped = {};
+    tagOrder.forEach(tag => { grouped[tag] = []; });
+
+    notes.forEach(note => {
+      const tagId = note.tags && note.tags.length > 0 ? note.tags[0] : '분류 안 됨';
+      if (grouped[tagId]) {
+        grouped[tagId].push(note);
+      } else {
+        grouped['분류 안 됨'].push(note);
+      }
     });
 
-    const counters = {};
-    tagSet.forEach(tag => { counters[tag] = 0; });
-
-    const a = 30, b = 0.8;
-    const sorted = notes.map(note => {
-      const tag = note.tags?.[0] || '분류 안 됨';
-      const k = counters[tag]++;
-      const theta = k * b;
-      const r = a * Math.sqrt(k + 1);
-      const { x: cx, y: cy } = centers[tag];
-      return { ...note, x: cx + r * Math.cos(theta), y: cy + r * Math.sin(theta) };
+    Object.keys(grouped).forEach(tag => {
+      // sort by id descending (most recently added first)
+      grouped[tag].sort((a, b) => b.id - a.id);
     });
 
-    setNotes(sorted);
+    const newPositions = {};
+
+    tagOrder.forEach(tag => {
+      const groupNotes = grouped[tag];
+      if (groupNotes.length === 0) return;
+
+      let currentX = startX;
+
+      groupNotes.forEach(note => {
+        if (currentX + 110 > W - 40) {
+          currentX = startX;
+          currentY += itemHeight;
+        }
+        newPositions[note.id] = { x: currentX, y: currentY };
+        currentX += itemWidth;
+      });
+
+      currentY += itemHeight + 20; // Move down for the next tag group with extra margin
+    });
+
+    setNotes(notes.map(n => ({ ...n, x: newPositions[n.id]?.x ?? n.x, y: newPositions[n.id]?.y ?? n.y })));
   };
 
   const regenAllEmbeddings = async () => {
@@ -133,15 +149,22 @@ export default function MemoBoard({ groups, setGroups, customTags, setCustomTags
     const note = notes.find(n => n.id === id);
     if (!note) return;
     setActiveNote(id);
-    setOffset({ x: e.clientX - note.x, y: e.clientY - note.y });
+    setOffset({ x: e.clientX - (note.x + camera.x), y: e.clientY - (note.y + camera.y) });
     setDragStartPos({ x: e.clientX, y: e.clientY });
   };
 
   const handlePointerMove = (e) => {
     if (activeNote === null) return;
     setNotes(notes.map(n => 
-      n.id === activeNote ? { ...n, x: e.clientX - offset.x, y: e.clientY - offset.y } : n
+      n.id === activeNote ? { ...n, x: e.clientX - offset.x - camera.x, y: e.clientY - offset.y - camera.y } : n
     ));
+  };
+
+  const handleWheel = (e) => {
+    setCamera(prev => ({
+      x: prev.x - e.deltaX,
+      y: prev.y - e.deltaY
+    }));
   };
 
   const openLink = (note) => {
@@ -383,6 +406,8 @@ export default function MemoBoard({ groups, setGroups, customTags, setCustomTags
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onMouseLeave={handlePointerUp}
+      onWheel={handleWheel}
+      style={{ overflow: 'hidden' }}
     >
       <header className="board-header">
         <div className="header-left">
@@ -456,7 +481,7 @@ export default function MemoBoard({ groups, setGroups, customTags, setCustomTags
             key={note.id}
             className={`post-it ${editingId === note.id ? 'editing' : ''}`}
             style={{ 
-              transform: `translate(${note.x}px, ${note.y}px)`, 
+              transform: `translate(${note.x + camera.x}px, ${note.y + camera.y}px)`, 
               backgroundColor: note.color,
               transition: activeNote === note.id ? 'none' : 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)',
               zIndex: activeNote === note.id || editingId === note.id ? 100 : 1
@@ -465,8 +490,6 @@ export default function MemoBoard({ groups, setGroups, customTags, setCustomTags
             onDragOver={handleDragOver}
             onDrop={(e) => handleDropOnNote(e, note.id)}
           >
-            <div className="pin"></div>
-            
             {editingId !== note.id && (
               <button 
                 className="delete-btn" 
