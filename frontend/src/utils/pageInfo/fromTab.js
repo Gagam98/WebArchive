@@ -24,3 +24,19 @@ export async function getPageInfoFromActiveTab() {
   const info = await getPageInfoFromTab(tab.id);
   return { ...info, url };
 }
+
+export async function getPageContentFromTab(tabId) {
+  const [{ result }] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      const article = document.body.innerText || '';
+      const cleaned = article.replace(/\s+/g, ' ').trim();
+      return {
+        title: document.title || '',
+        content: cleaned.slice(0, 100000), // Max 100KB to avoid excessive processing
+        url: location.href
+      };
+    }
+  });
+  return result;
+}

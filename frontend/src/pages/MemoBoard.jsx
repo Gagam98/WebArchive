@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getPageInfoSmart, getPageInfoFromActiveTab } from '../utils/pageInfo';
 import { getEmbedding } from '../utils/embedding';
 import { suggestTags } from '../utils/tagSuggester';
+import NoteCard from '../components/NoteCard';
 
 export default function MemoBoard({ groups, setGroups, customTags, setCustomTags }) {
   const { groupId } = useParams();
@@ -477,93 +478,26 @@ export default function MemoBoard({ groups, setGroups, customTags, setCustomTags
 
       <div className="notes-area">
         {filteredNotes.map(note => (
-          <div
+          <NoteCard
             key={note.id}
-            className={`post-it ${editingId === note.id ? 'editing' : ''}`}
-            style={{ 
-              transform: `translate(${note.x + camera.x}px, ${note.y + camera.y}px)`, 
-              backgroundColor: note.color,
-              transition: activeNote === note.id ? 'none' : 'transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1)',
-              zIndex: activeNote === note.id || editingId === note.id ? 100 : 1
-            }}
+            note={note}
+            camera={camera}
+            editingId={editingId}
+            activeNote={activeNote}
+            editTitle={editTitle}
+            editUrl={editUrl}
+            setEditTitle={setEditTitle}
+            setEditUrl={setEditUrl}
+            customTags={customTags}
             onPointerDown={(e) => handlePointerDown(e, note.id)}
             onDragOver={handleDragOver}
             onDrop={(e) => handleDropOnNote(e, note.id)}
-          >
-            {editingId !== note.id && (
-              <button 
-                className="delete-btn" 
-                onClick={(e) => deleteNote(e, note.id)} 
-                onPointerDown={(e) => e.stopPropagation()}
-                title="삭제"
-              >
-                ×
-              </button>
-            )}
-
-            {editingId === note.id ? (
-              <div className="post-it-content edit-mode" onPointerDown={(e) => e.stopPropagation()}>
-                <input 
-                  type="text" 
-                  className="post-it-input title-input" 
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  placeholder="제목을 입력하세요"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveEdit(note.id);
-                    if (e.key === 'Escape') cancelEdit(note.id);
-                  }}
-                />
-                <input 
-                  type="text" 
-                  className="post-it-input url-input" 
-                  value={editUrl}
-                  onChange={(e) => setEditUrl(e.target.value)}
-                  placeholder="웹사이트 URL"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') saveEdit(note.id);
-                    if (e.key === 'Escape') cancelEdit(note.id);
-                  }}
-                />
-                <div className="edit-actions">
-                  <button className="edit-btn save" onClick={() => saveEdit(note.id)}>저장</button>
-                  <button className="edit-btn cancel" onClick={() => cancelEdit(note.id)}>취소</button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="post-it-content" onDoubleClick={() => startEdit(note)}>
-                  <h3 style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    {note.title}
-                  </h3>
-                  <p className="url-text">{note.url}</p>
-                </div>
-                <div className="post-it-footer">
-                  <div className="note-tags-list">
-                    {(note.tags || []).map(tagId => {
-                      const tagObj = customTags.find(t => t.id === tagId);
-                      if (!tagObj) return null;
-                      return (
-                        <span key={tagId} className="note-tag" style={{ backgroundColor: tagObj.color }}>
-                          {tagObj.name}
-                          <button 
-                            className="remove-tag-btn" 
-                            onClick={(e) => { e.stopPropagation(); removeTag(note.id, tagId); }}
-                            onPointerDown={(e) => e.stopPropagation()}
-                            title="태그 삭제"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      );
-                    })}
-                  </div>
-                  <span className="note-date">{note.date}</span>
-                </div>
-              </>
-            )}
-          </div>
+            deleteNote={(e) => deleteNote(e, note.id)}
+            startEdit={() => startEdit(note)}
+            saveEdit={() => saveEdit(note.id)}
+            cancelEdit={() => cancelEdit(note.id)}
+            removeTag={(tagId) => removeTag(note.id, tagId)}
+          />
         ))}
       </div>
       
